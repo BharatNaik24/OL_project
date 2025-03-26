@@ -3,7 +3,7 @@ import Map from "ol/Map.js";
 import View from "ol/View.js";
 import TileLayer from "ol/layer/Tile.js";
 import OSM from "ol/source/OSM.js";
-import { LineString, Point } from "ol/geom";
+import { Circle, LineString, Point } from "ol/geom";
 import { Vector as VectorLayer } from "ol/layer";
 import { Vector as VectorSource } from "ol/source";
 import { Feature } from "ol";
@@ -12,6 +12,9 @@ import { Style, Circle as CircleStyle, Fill, Stroke, Icon } from "ol/style";
 import Overlay from "ol/Overlay.js";
 import "ol/ol.css";
 import RouteForm from "../forms/RouteForm";
+import flight from "../assets/flight.png";
+import GeometryCollection from "ol/geom/GeometryCollection";
+
 
 const MapComponent = () => {
   const [startLat, setStartLat] = useState("");
@@ -38,7 +41,10 @@ const MapComponent = () => {
   const animationStartTimeRef = useRef(null);
   const pausedTimeRef = useRef(0);
   const animationPlayingRef = useRef(false);
-  const baseAnimationDuration = 90000;
+  const baseAnimationDuration = 50000;
+
+  // const iconSrc =
+  //   "https://www.pngfind.com/pngs/m/202-2027734_plane-png-top-view-transparent-png.png";
 
   const iconSrc =
     "https://png.pngtree.com/png-vector/20230530/ourmid/pngtree-airplane-icon-vector-png-image_7114175.png";
@@ -104,6 +110,22 @@ const MapComponent = () => {
     }
     return coordinates;
   };
+
+  const stopAnimation = useCallback(() => {
+    animationPlayingRef.current = false;
+    setIsPlaying(false);
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    pausedTimeRef.current = 0;
+    animationStartTimeRef.current = null;
+
+    if (animationFeatureRef.current) {
+      vectorLayer.getSource().removeFeature(animationFeatureRef.current);
+      animationFeatureRef.current = null;
+    }
+  }, [vectorLayer]);
 
   const clearRoute = () => {
     if (vectorLayer) {
@@ -178,9 +200,24 @@ const MapComponent = () => {
         }
       }
     }
-  }, [startLat, startLon, endLat, endLon, curvature, map, vectorLayer]);
+  }, [
+    startLat,
+    startLon,
+    endLat,
+    endLon,
+    stopAnimation,
+    curvature,
+    map,
+    vectorLayer,
+  ]);
 
-  const animate = (timestamp) => {
+  const calculateAngle = (point1, point2) => {
+    const dx = point2[1] - point1[1];
+    const dy = point2[0] - point1[0];
+    return Math.atan2(dy, dx);
+  };
+
+  const animate = (timestamp) => {  
     if (!animationStartTimeRef.current) {
       animationStartTimeRef.current = timestamp - pausedTimeRef.current;
     }
@@ -194,18 +231,26 @@ const MapComponent = () => {
 
       if (index < animationPath.length - 1) {
         const nextPos = animationPath[index + 1];
-        const dx = nextPos[0] - newPos[0];
-        const dy = nextPos[1] - newPos[1];
-        const angle = Math.atan2(dy, dx);
-
-        const dynamicStyle = new Style({
-          image: new Icon({
-            src: iconSrc,
-            scale: 0.09,
-            rotateWithView: true,
-            rotation: angle,
+        const angle = calculateAngle(newPos, nextPos);
+              
+        const dynamicStyle = [
+          new Style({
+            image: new CircleStyle({
+              radius: 35, 
+              stroke: new Stroke({ color: '#00ff00', width: 2 }), 
+              fill: new Fill({ color: 'rgba(0, 255, 0, 0.5)' }), 
+            }),
           }),
-        });
+          new Style({
+            image: new Icon({
+              src: iconSrc,
+              scale: 0.09,
+              rotateWithView: true,
+              rotation: angle,
+            }),
+          }),
+        ];
+        
         animationFeatureRef.current.setStyle(dynamicStyle);
       }
     }
@@ -233,7 +278,6 @@ const MapComponent = () => {
           src: iconSrc,
           scale: 0.09,
           rotateWithView: false,
-          rotation: 0,
         }),
       });
       feature.setStyle(initStyle);
@@ -261,22 +305,6 @@ const MapComponent = () => {
         pausedTimeRef.current =
           performance.now() - animationStartTimeRef.current;
       }
-    }
-  };
-
-  const stopAnimation = () => {
-    animationPlayingRef.current = false;
-    setIsPlaying(false);
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    pausedTimeRef.current = 0;
-    animationStartTimeRef.current = null;
-
-    if (animationFeatureRef.current) {
-      vectorLayer.getSource().removeFeature(animationFeatureRef.current);
-      animationFeatureRef.current = null;
     }
   };
 
@@ -442,9 +470,10 @@ const MapComponent = () => {
         toLocation={toLocation}
         setToLocation={setToLocation}
       />
-      <div ref={mapElement} className="flex-1 h-screen bg-[#f0f0f0]"></div>
+      <div ref={mapElement} className="flex-1 !h-[100%] !w-[100%] bg-[#f0f0f0]"></div>
 
       <div
+        className="scrollbar-hide"
         style={{
           position: "absolute",
           bottom: "20px",
@@ -496,11 +525,12 @@ const MapComponent = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          zIndex: 1,
         }}
         onClick={drawLine}
       >
         <img
-          src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Draw_line_tool_icon.svg/1200px-Draw_line_tool_icon.svg.png"
+          src="https://icons.veryicon.com/png/o/construction-tools/supermap-gis-product-color-system-function/convert-from-line-to-path.png"
           alt="Draw Line Icon"
           style={{ width: "30px", height: "30px" }}
         />

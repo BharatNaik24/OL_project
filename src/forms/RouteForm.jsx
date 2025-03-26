@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 
 const RouteForm = ({
   startLat,
@@ -29,8 +30,21 @@ const RouteForm = ({
   toLocation,
   setToLocation,
 }) => {
+  const navigate = useNavigate();
+
+  const handleLogout = useCallback(() => {
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      localStorage.removeItem("token");
+      if (!localStorage.getItem("token")) {
+        navigate("/");
+      }
+    }
+  }, [navigate]);
+
   return (
-    <div className="w-80 bg-[#34495e] text-white p-5 flex flex-col">
+    <div className="w-80 bg-[#34495e] text-white p-5 flex flex-col overflow-auto scrollbar-hide">
       <h2 className="text-2xl font-bold mb-4">Route Planner</h2>
 
       <div className="mb-4">
@@ -189,6 +203,13 @@ const RouteForm = ({
           Reset
         </button>
       </div>
+
+      <button
+        onClick={handleLogout}
+        className="rounded bg-yellow-500 py-2 px-4 mt-5 font-bold text-white shadow hover:bg-gray-600"
+      >
+        Logout
+      </button>
 
       {distance && (
         <p className="mt-4 text-sm">
