@@ -7,14 +7,13 @@ import { Circle, LineString, Point } from "ol/geom";
 import { Vector as VectorLayer } from "ol/layer";
 import { Vector as VectorSource } from "ol/source";
 import { Feature } from "ol";
-import { fromLonLat } from "ol/proj";
 import { Style, Circle as CircleStyle, Fill, Stroke, Icon } from "ol/style";
 import Overlay from "ol/Overlay.js";
 import "ol/ol.css";
 import RouteForm from "../forms/RouteForm";
-import flight from "../assets/flight.png";
-import GeometryCollection from "ol/geom/GeometryCollection";
-
+// import flight from "../assets/flight.png";
+import { toLonLat, fromLonLat } from "ol/proj";
+import { Modify } from "ol/interaction";
 
 const MapComponent = () => {
   const [startLat, setStartLat] = useState("");
@@ -43,7 +42,7 @@ const MapComponent = () => {
   const animationPlayingRef = useRef(false);
   const baseAnimationDuration = 50000;
 
-  // const iconSrc =
+  // const iconSrc =s
   //   "https://www.pngfind.com/pngs/m/202-2027734_plane-png-top-view-transparent-png.png";
 
   const iconSrc =
@@ -62,10 +61,16 @@ const MapComponent = () => {
 
   const addEmitterMarker = useCallback((coordinate, type) => {
     if (!emitterLayerRef.current) return;
+
+    const markerType = type === "enemy" ? "enemy" : "friendly";
+
     const marker = new Feature({
       geometry: new Point(coordinate),
     });
-    marker.setStyle(getEmitterStyle(type));
+
+    marker.set("type", markerType);
+    marker.setStyle(getEmitterStyle(markerType));
+
     emitterLayerRef.current.getSource().addFeature(marker);
   }, []);
 
@@ -217,7 +222,7 @@ const MapComponent = () => {
     return Math.atan2(dy, dx);
   };
 
-  const animate = (timestamp) => {  
+  const animate = (timestamp) => {
     if (!animationStartTimeRef.current) {
       animationStartTimeRef.current = timestamp - pausedTimeRef.current;
     }
@@ -232,13 +237,13 @@ const MapComponent = () => {
       if (index < animationPath.length - 1) {
         const nextPos = animationPath[index + 1];
         const angle = calculateAngle(newPos, nextPos);
-              
+
         const dynamicStyle = [
           new Style({
             image: new CircleStyle({
-              radius: 35, 
-              stroke: new Stroke({ color: '#00ff00', width: 2 }), 
-              fill: new Fill({ color: 'rgba(0, 255, 0, 0.5)' }), 
+              radius: 35,
+              stroke: new Stroke({ color: "#00ff00", width: 2 }),
+              fill: new Fill({ color: "rgba(0, 255, 0, 0.5)" }),
             }),
           }),
           new Style({
@@ -250,7 +255,7 @@ const MapComponent = () => {
             }),
           }),
         ];
-        
+
         animationFeatureRef.current.setStyle(dynamicStyle);
       }
     }
@@ -387,6 +392,8 @@ const MapComponent = () => {
 
     mapInstance.on("singleclick", function (event) {
       const coordinate = event.coordinate;
+      const [lon, lat] = toLonLat(coordinate);
+
       overlay.setPosition(coordinate);
       container.innerHTML = `
       <div>
@@ -404,27 +411,51 @@ const MapComponent = () => {
       setTimeout(() => {
         const friendlyBtn = document.getElementById("friendly-btn");
         const enemyBtn = document.getElementById("enemy-btn");
-        if (friendlyBtn) {
-          friendlyBtn.onclick = () => {
-            addEmitterMarker(coordinate, "friendly");
-            setSelectedEmitters((prevEmitters) => [
-              ...prevEmitters,
-              { lat: coordinate[1], lon: coordinate[0], type: "friendly" },
-            ]);
-            overlay.setPosition(undefined);
-          };
-        }
-        if (enemyBtn) {
-          enemyBtn.onclick = () => {
-            addEmitterMarker(coordinate, "enemy");
-            setSelectedEmitters((prevEmitters) => [
-              ...prevEmitters,
-              { lat: coordinate[1], lon: coordinate[0], type: "enemy" },
-            ]);
-            overlay.setPosition(undefined);
-          };
-        }
+
+        const addEmitter = (type) => {
+          addEmitterMarker(coordinate, type);
+          console.log("Emitter Type before drag:", type);
+          console.log("Lat:", lat);
+          console.log("Lon:", lon);
+          setSelectedEmitters((prevEmitters) => [
+            ...prevEmitters,
+            { lat: lat, lon: lon, type },
+          ]);
+
+          overlay.setPosition(undefined);
+        };
+
+        if (friendlyBtn) friendlyBtn.onclick = () => addEmitter("friendly");
+        if (enemyBtn) enemyBtn.onclick = () => addEmitter("enemy");
       }, 0);
+    });
+
+    const modifyInteraction = new Modify({ source: emitterSrc });
+    mapInstance.addInteraction(modifyInteraction);
+
+    modifyInteraction.on("modifyend", (event) => {
+      console.log("Modify Event:", event);
+
+      const updatedEmitters = emitterLayerRef.current
+        .getSource()
+        .getFeatures()
+        .map((feature) => {
+          const newCoords = toLonLat(feature.getGeometry().getCoordinates());
+
+          const type = feature.get("type") || "friendly";
+
+          console.log("Emitter Type after drag:", type);
+
+          const updatedType = type === "enemy" ? "enemy" : "friendly";
+
+          return {
+            lat: newCoords[1],
+            lon: newCoords[0],
+            type: updatedType,
+          };
+        });
+
+      setSelectedEmitters(updatedEmitters);
     });
 
     const handleEscKeyPress = (event) => {
@@ -432,11 +463,11 @@ const MapComponent = () => {
         overlay.setPosition(undefined);
       }
     };
-
     document.addEventListener("keydown", handleEscKeyPress);
 
     return () => {
       document.removeEventListener("keydown", handleEscKeyPress);
+      mapInstance.removeInteraction(modifyInteraction);
       mapInstance.setTarget(null);
     };
   }, [addEmitterMarker]);
@@ -470,7 +501,10 @@ const MapComponent = () => {
         toLocation={toLocation}
         setToLocation={setToLocation}
       />
-      <div ref={mapElement} className="flex-1 !h-[100%] !w-[100%] bg-[#f0f0f0]"></div>
+      <div
+        ref={mapElement}
+        className="flex-1 !h-[100%] !w-[100%] bg-[#f0f0f0]"
+      ></div>
 
       <div
         className="scrollbar-hide"
@@ -488,27 +522,31 @@ const MapComponent = () => {
           width: "200px",
         }}
       >
-        <p>
-          <strong>Selected Emitters:</strong>
+        <p className="flex flex-row items-center justify-center">
+          <strong>Selected Emitters:  {selectedEmitters.length}</strong>
         </p>
         <div>
-          {selectedEmitters.map((emitter, index) => (
-            <div
-              key={index}
-              style={{
-                backgroundColor:
-                  emitter.type === "friendly"
-                    ? "rgba(0, 255, 0, 0.3)"
-                    : "rgba(255, 0, 0, 0.3)",
-                margin: "5px 0",
-                padding: "5px",
-                borderRadius: "5px",
-              }}
-            >
-              <p>Lat: {emitter.lat}</p>
-              <p>Lon: {emitter.lon}</p>
-            </div>
-          ))}
+          {selectedEmitters.map((emitter, index) => {
+            return (
+              <div
+                key={index}
+                style={{
+                  backgroundColor:
+                    emitter.type === "friendly"
+                      ? "rgba(0, 255, 0, 0.3)" // Green
+                      : "rgba(255, 0, 0, 0.3)", // Red
+                  margin: "5px 0",
+                  padding: "5px",
+                  borderRadius: "5px",
+                }}
+              >
+                <p className="bg-pink-50">Marker No: {index}</p>
+                <p>Type: {emitter.type}</p>
+                <p>Lat: {emitter.lat}</p>
+                <p>Lon: {emitter.lon}</p>
+              </div>
+            );
+          })}
         </div>
       </div>
 
