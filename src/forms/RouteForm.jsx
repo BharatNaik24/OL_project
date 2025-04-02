@@ -1,52 +1,11 @@
 import React, { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import RadarComponent from "../components/radar";
-import Select from "react-select";
+
 import { FaPlay } from "react-icons/fa";
 import { FaPause } from "react-icons/fa";
 import { FaStop } from "react-icons/fa";
 import { MdDelete } from "react-icons/md";
-const options = [
-  {
-    value: 1,
-    label: (
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <img
-          src="https://img.freepik.com/premium-vector/plane-top-view-aircraft-flight-airport-vehicle-isolated-white-background_80590-19966.jpg?w=740"
-          alt="Plane"
-          style={{ width: "50px", height: "50px", marginRight: "10px" }}
-        />
-        Commercial
-      </div>
-    ),
-  },
-  {
-    value: 2,
-    label: (
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <img
-          src="https://static.vecteezy.com/system/resources/previews/015/242/306/non_2x/aircraft-or-airplane-on-top-view-png.png"
-          alt="Plane"
-          style={{ width: "50px", height: "50px", marginRight: "10px" }}
-        />
-        Cargo
-      </div>
-    ),
-  },
-  {
-    value: 3,
-    label: (
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <img
-          src="https://www.clipartbest.com/cliparts/4c9/6bg/4c96bg5yi.png"
-          alt="Plane"
-          style={{ width: "50px", height: "50px", marginRight: "10px" }}
-        />
-        Fighter Jet
-      </div>
-    ),
-  },
-];
 
 const RouteForm = ({
   startLat,
@@ -79,6 +38,9 @@ const RouteForm = ({
   addEmitterMarkerRandom,
   manualEmitters,
   flightPath,
+  playFlightAnimation,
+  pauseFlightAnimation,
+  stopFlightAnimation,
 }) => {
   const [showRadar, setShowRadar] = useState(false);
   const [selectedEmitterType, setSelectedEmitterType] = useState("enemy");
@@ -114,7 +76,7 @@ const RouteForm = ({
 
       <div className="bg-black px-5 py-3 mb-5 rounded-xl">
         <h1 className="font-bold text-xl">Emitter Controls</h1>
-        <div className="mt-3 mb-3">
+        {/* <div className="mt-3 mb-3">
           <label className="block text-sm font-medium mb-2">
             Flight Type:{" "}
           </label>
@@ -130,20 +92,29 @@ const RouteForm = ({
               }),
             }}
           />
-        </div>
+        </div> */}
         <div className="flex flex-row items-center justify-around flex-wrap">
           <div>
-            <button className="bg-[#58a399] py-3 rounded-lg px-10 mb-5">
+            <button
+              onClick={playFlightAnimation}
+              className="bg-[#58a399] py-3 rounded-lg px-10 mb-5"
+            >
               <FaPlay className="text-red-400 text-2xl" />
             </button>
           </div>
           <div>
-            <button className="bg-[#58a399] py-3 rounded-lg px-10 mb-5">
+            <button
+              onClick={pauseFlightAnimation}
+              className="bg-[#58a399] py-3 rounded-lg px-10 mb-5"
+            >
               <FaPause className="text-red-400 text-2xl" />
             </button>
           </div>
           <div>
-            <button className="bg-[#58a399] py-3 rounded-lg px-10 mb-5">
+            <button
+              onClick={stopFlightAnimation}
+              className="bg-[#58a399] py-3 rounded-lg px-10 mb-5"
+            >
               <FaStop className="text-red-400 text-2xl" />
             </button>
           </div>
@@ -158,12 +129,15 @@ const RouteForm = ({
         </h2>
         <ul className="max-h-40 min-h-auto bg-white rounded overflow-auto scrollbar-hide">
           {flightPath.length === 0 ? (
-            <p className="text-black px-5 font-black">No flight path drawn yet.</p>
+            <p className="text-black px-5 font-black">
+              No flight path drawn yet.
+            </p>
           ) : (
             flightPath.map((point, index) => (
               <li key={index} className="mt-2 text-black px-5">
-                <span>{index+ 1}. </span>
-               <span className="font-bold">Lat</span>: {point.lat}, <span className="font-bold">Lon</span>: {point.lon}
+                <span>{index + 1}. </span>
+                <span className="font-bold">Lat</span>: {point.lat},{" "}
+                <span className="font-bold">Lon</span>: {point.lon}
               </li>
             ))
           )}
