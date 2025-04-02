@@ -9,6 +9,7 @@ import { Vector as VectorSource } from "ol/source";
 import { Feature } from "ol";
 import { Style, Circle as CircleStyle, Fill, Stroke, Icon } from "ol/style";
 import Overlay from "ol/Overlay.js";
+import { Draw } from "ol/interaction";
 import "ol/ol.css";
 import RouteForm from "../forms/RouteForm";
 // import flight from "../assets/flight.png";
@@ -22,7 +23,7 @@ const MapComponent = () => {
   const [endLon, setEndLon] = useState("");
   const [curvature, setCurvature] = useState("-0.2");
   const [distance, setDistance] = useState(null);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(5);
   const [map, setMap] = useState(null);
   const [vectorLayer, setVectorLayer] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -30,10 +31,11 @@ const MapComponent = () => {
   const [fromLocation, setFromLocation] = useState("");
   const [toLocation, setToLocation] = useState("");
   const [selectedEmitters, setSelectedEmitters] = useState([]);
-
+  const [manualEmitters, setManualEmitters] = useState([]);
   const mapElement = useRef(null);
   const emitterLayerRef = useRef(null);
   const overlayRef = useRef(null);
+  const [flightPath, setFlightPath] = useState([]);
 
   const animationFeatureRef = useRef(null);
   const animationFrameRef = useRef(null);
@@ -41,9 +43,6 @@ const MapComponent = () => {
   const pausedTimeRef = useRef(0);
   const animationPlayingRef = useRef(false);
   const baseAnimationDuration = 50000;
-
-  // const iconSrc =s
-  //   "https://www.pngfind.com/pngs/m/202-2027734_plane-png-top-view-transparent-png.png";
 
   const iconSrc =
     "https://png.pngtree.com/png-vector/20230530/ourmid/pngtree-airplane-icon-vector-png-image_7114175.png";
@@ -72,6 +71,34 @@ const MapComponent = () => {
     marker.setStyle(getEmitterStyle(markerType));
 
     emitterLayerRef.current.getSource().addFeature(marker);
+  }, []);
+
+  const generateRandomCoordinates = () => {
+    const randomLat = (Math.random() * 180 - 90).toFixed(6); // Random lat between -90 and 90
+    const randomLon = (Math.random() * 360 - 180).toFixed(6); // Random lon between -180 and 180
+    return [parseFloat(randomLon), parseFloat(randomLat)];
+  };
+
+  const addEmitterMarkerRandom = useCallback((type) => {
+    if (!emitterLayerRef.current) return;
+
+    const randomCoordinates = generateRandomCoordinates();
+
+    const markerType = type === "enemy" ? "enemy" : "friendly";
+
+    const marker = new Feature({
+      geometry: new Point(randomCoordinates),
+    });
+
+    marker.set("type", markerType);
+    marker.setStyle(getEmitterStyle(markerType));
+
+    emitterLayerRef.current.getSource().addFeature(marker);
+
+    setManualEmitters((prevEmitters) => [
+      ...prevEmitters,
+      { lat: randomCoordinates[1], lon: randomCoordinates[0], type },
+    ]);
   }, []);
 
   const latLonToCoords = (lat, lon) => fromLonLat([lon, lat]);
@@ -227,9 +254,17 @@ const MapComponent = () => {
       animationStartTimeRef.current = timestamp - pausedTimeRef.current;
     }
     const elapsed = timestamp - animationStartTimeRef.current;
-    const fraction = Math.min((elapsed * speed) / baseAnimationDuration, 1);
+    const fraction = Math.min((elapsed * speed) / baseAnimationDuration, 1); // Speed and time-based movement
     const index = Math.floor(fraction * (animationPath.length - 1));
-    const newPos = animationPath[index];
+
+    const t = fraction * (animationPath.length - 1) - index;
+    const startPoint = animationPath[index];
+    const endPoint = animationPath[index + 1];
+
+    const interpolatedX = startPoint[0] + t * (endPoint[0] - startPoint[0]);
+    const interpolatedY = startPoint[1] + t * (endPoint[1] - startPoint[1]);
+
+    const newPos = [interpolatedX, interpolatedY];
 
     if (animationFeatureRef.current) {
       animationFeatureRef.current.setGeometry(new Point(newPos));
@@ -390,83 +425,118 @@ const MapComponent = () => {
     overlayRef.current = overlay;
     mapInstance.addOverlay(overlay);
 
+    let selectedPoints = [];
+    let longPressTimeout = null;
+    let isDrawing = true;
+    let isLongPress = false;
+
     mapInstance.on("singleclick", function (event) {
+      if (!isDrawing || isLongPress) return;
+
       const coordinate = event.coordinate;
-      const [lon, lat] = toLonLat(coordinate);
+      selectedPoints.push(coordinate);
 
-      overlay.setPosition(coordinate);
-      container.innerHTML = `
-      <div>
-        <p style="margin:0 0 8px 0;">Select emitter type:</p>
-        <button id="friendly-btn"
-            style="background-color: green; color: white; margin-right:4px; padding: 8px 12px; border: none; border-radius: 4px;">
-            Friendly Emitter
-        </button>
-        <button id="enemy-btn"
-            style="background-color: red; color: white; padding: 8px 12px; border: none; border-radius: 4px;">
-                Enemy Emitter
-        </button>
-      </div>`;
+      if (selectedPoints.length > 1) {
+        const line = new LineString(selectedPoints);
+        const lineFeature = new Feature({ geometry: line });
 
-      setTimeout(() => {
-        const friendlyBtn = document.getElementById("friendly-btn");
-        const enemyBtn = document.getElementById("enemy-btn");
+        vectorSrc.clear();
+        vectorSrc.addFeature(lineFeature);
 
-        const addEmitter = (type) => {
-          addEmitterMarker(coordinate, type);
-          console.log("Emitter Type before drag:", type);
-          console.log("Lat:", lat);
-          console.log("Lon:", lon);
-          setSelectedEmitters((prevEmitters) => [
-            ...prevEmitters,
-            { lat: lat, lon: lon, type },
-          ]);
+        const updatedPath = selectedPoints.map((point) => {
+          const [lon, lat] = toLonLat(point);
+          return { lat, lon };
+        });
 
-          overlay.setPosition(undefined);
-        };
+        setFlightPath(updatedPath);
+        console.log("Updated Flight Path:", updatedPath);
+      }
+    });
 
-        if (friendlyBtn) friendlyBtn.onclick = () => addEmitter("friendly");
-        if (enemyBtn) enemyBtn.onclick = () => addEmitter("enemy");
-      }, 0);
+    mapInstance.on("pointerdown", function (event) {
+      isLongPress = false; 
+
+      longPressTimeout = setTimeout(() => {
+        isLongPress = true; 
+        const coordinate = event.coordinate;
+        const [lon, lat] = toLonLat(coordinate);
+
+        overlay.setPosition(coordinate);
+        container.innerHTML = `
+          <div>
+            <p style="margin:0 0 8px 0;">Select emitter type:</p>
+            <button id="friendly-btn" style="background-color: green; color: white; margin-right:4px; padding: 8px 12px; border: none; border-radius: 4px;">
+              Friendly Emitter
+            </button>
+            <button id="enemy-btn" style="background-color: red; color: white; padding: 8px 12px; border: none; border-radius: 4px;">
+              Enemy Emitter
+            </button>
+          </div>`;
+
+        setTimeout(() => {
+          document.getElementById("friendly-btn").onclick = () => {
+            addEmitterMarker(coordinate, "friendly");
+            setSelectedEmitters((prev) => [
+              ...prev,
+              { lat, lon, type: "friendly" },
+            ]);
+            overlay.setPosition(undefined);
+          };
+
+          document.getElementById("enemy-btn").onclick = () => {
+            addEmitterMarker(coordinate, "enemy");
+            setSelectedEmitters((prev) => [
+              ...prev,
+              { lat, lon, type: "enemy" },
+            ]);
+            overlay.setPosition(undefined);
+          };
+        }, 0);
+      }, 1000);
+    });
+
+    mapInstance.on("pointerup", function () {
+      clearTimeout(longPressTimeout);
+    });
+
+    mapInstance.on("pointermove", function () {
+      clearTimeout(longPressTimeout);
     });
 
     const modifyInteraction = new Modify({ source: emitterSrc });
     mapInstance.addInteraction(modifyInteraction);
 
-    modifyInteraction.on("modifyend", (event) => {
-      console.log("Modify Event:", event);
-
+    modifyInteraction.on("modifyend", () => {
       const updatedEmitters = emitterLayerRef.current
         .getSource()
         .getFeatures()
         .map((feature) => {
           const newCoords = toLonLat(feature.getGeometry().getCoordinates());
-
           const type = feature.get("type") || "friendly";
-
-          console.log("Emitter Type after drag:", type);
-
-          const updatedType = type === "enemy" ? "enemy" : "friendly";
 
           return {
             lat: newCoords[1],
             lon: newCoords[0],
-            type: updatedType,
+            type: type === "enemy" ? "enemy" : "friendly",
           };
         });
 
       setSelectedEmitters(updatedEmitters);
     });
 
-    const handleEscKeyPress = (event) => {
+    const handleKeyPress = (event) => {
       if (event.key === "Escape") {
         overlay.setPosition(undefined);
+      } else if (event.key === "Enter") {
+        isDrawing = false;
+        alert("Flight Path finalized!");
       }
     };
-    document.addEventListener("keydown", handleEscKeyPress);
+
+    document.addEventListener("keydown", handleKeyPress);
 
     return () => {
-      document.removeEventListener("keydown", handleEscKeyPress);
+      document.removeEventListener("keydown", handleKeyPress);
       mapInstance.removeInteraction(modifyInteraction);
       mapInstance.setTarget(null);
     };
@@ -500,10 +570,14 @@ const MapComponent = () => {
         setFromLocation={setFromLocation}
         toLocation={toLocation}
         setToLocation={setToLocation}
+        selectedEmitters={selectedEmitters}
+        addEmitterMarkerRandom={addEmitterMarkerRandom}
+        manualEmitters={manualEmitters}
+        flightPath={flightPath}
       />
       <div
         ref={mapElement}
-        className="flex-1 !h-[100%] !w-[100%] bg-[#f0f0f0]"
+        className="flex-1 !h-[100%] !w-[100%] bg-[#f0f0f0] border-5"
       ></div>
 
       <div
@@ -523,7 +597,7 @@ const MapComponent = () => {
         }}
       >
         <p className="flex flex-row items-center justify-center">
-          <strong>Selected Emitters:  {selectedEmitters.length}</strong>
+          <strong>Selected Emitters: {selectedEmitters.length}</strong>
         </p>
         <div>
           {selectedEmitters.map((emitter, index) => {
@@ -540,7 +614,7 @@ const MapComponent = () => {
                   borderRadius: "5px",
                 }}
               >
-                <p className="bg-pink-50">Marker No: {index}</p>
+                <p className="bg-pink-50">Marker No: {index + 1}</p>
                 <p>Type: {emitter.type}</p>
                 <p>Lat: {emitter.lat}</p>
                 <p>Lon: {emitter.lon}</p>
@@ -550,7 +624,7 @@ const MapComponent = () => {
         </div>
       </div>
 
-      <div
+      {/* <div
         style={{
           position: "absolute",
           top: "20px",
@@ -565,14 +639,17 @@ const MapComponent = () => {
           justifyContent: "center",
           zIndex: 1,
         }}
-        onClick={drawLine}
       >
-        <img
-          src="https://icons.veryicon.com/png/o/construction-tools/supermap-gis-product-color-system-function/convert-from-line-to-path.png"
-          alt="Draw Line Icon"
-          style={{ width: "30px", height: "30px" }}
-        />
-      </div>
+        <div className="bg-red-500">
+          <button>
+            <img
+              src="https://icons.veryicon.com/png/o/construction-tools/supermap-gis-product-color-system-function/convert-from-line-to-path.png"
+              alt="Draw Line Icon"
+              style={{ width: "30px", height: "30px" }}
+            />
+          </button>
+        </div>
+      </div> */}
     </div>
   );
 };
