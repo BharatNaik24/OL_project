@@ -18,15 +18,15 @@ import Select from "react-select";
 const options = [
   {
     value: 1,
-    icon: "https://img.freepik.com/premium-vector/plane-top-view-aircraft-flight-airport-vehicle-isolated-white-background_80590-19966.jpg?w=740",
+    icon: "https://static.vecteezy.com/system/resources/previews/050/594/962/non_2x/fighter-jet-top-view-isolate-on-transparency-background-png.png",
     label: (
       <div style={{ display: "flex", alignItems: "center" }}>
         <img
-          src="https://img.freepik.com/premium-vector/plane-top-view-aircraft-flight-airport-vehicle-isolated-white-background_80590-19966.jpg?w=740"
-          alt="Plane"
+          src="https://static.vecteezy.com/system/resources/previews/050/594/962/non_2x/fighter-jet-top-view-isolate-on-transparency-background-png.png"
+          alt="Fighter"
           style={{ width: "50px", height: "50px", marginRight: "10px" }}
         />
-        Commercial
+        Figher Jet
       </div>
     ),
   },
@@ -46,15 +46,15 @@ const options = [
   },
   {
     value: 3,
-    icon: "https://www.clipartbest.com/cliparts/4c9/6bg/4c96bg5yi.png",
+    icon: "https://png.pngtree.com/png-vector/20220719/ourmid/pngtree-flat-icon---airplane-commercial-aviation-vector-clip-art-vector-png-image_37899496.png",
     label: (
       <div style={{ display: "flex", alignItems: "center" }}>
         <img
-          src="https://www.clipartbest.com/cliparts/4c9/6bg/4c96bg5yi.png"
+          src="https://png.pngtree.com/png-vector/20220719/ourmid/pngtree-flat-icon---airplane-commercial-aviation-vector-clip-art-vector-png-image_37899496.png"
           alt="Plane"
           style={{ width: "50px", height: "50px", marginRight: "10px" }}
         />
-        Fighter Jet
+        Commercal Plans
       </div>
     ),
   },
@@ -441,8 +441,8 @@ const MapComponent = () => {
       target: mapElement.current,
       layers: [
         new TileLayer({ source: new OSM() }),
-        routeLayer,
         flightLayer,
+        routeLayer,
         emitterLayer,
       ],
       view: new View({
@@ -521,7 +521,7 @@ const MapComponent = () => {
             overlay.setPosition(undefined);
           };
         }, 0);
-      }, 1000);
+      }, 500);
     });
 
     mapInstance.on("pointerup", function () {
@@ -614,7 +614,8 @@ const MapComponent = () => {
             rotateWithView: true,
             rotation: angle,
           }),
-          zIndex: 10,
+   
+          zIndex: 1000,
         })
       );
     }
@@ -624,62 +625,10 @@ const MapComponent = () => {
     );
   };
 
-  // const animateFlightPath = (timestamp, flightCoordinates) => {
-  //   if (!flightAnimationStartTime.current) {
-  //     flightAnimationStartTime.current = timestamp - flightPausedTime.current;
-  //   }
-  //   const elapsed = timestamp - flightAnimationStartTime.current;
-  //   const totalDuration = 10000;
-  //   const totalSegments = flightCoordinates.length - 1;
-  //   const segmentDuration = totalDuration / totalSegments;
-  //   let currentSegmentIndex = Math.floor(elapsed / segmentDuration);
-  //   if (currentSegmentIndex >= totalSegments) {
-  //     if (animationFeatureFlight.current) {
-  //       animationFeatureFlight.current.setGeometry(
-  //         new Point(flightCoordinates[flightCoordinates.length - 1])
-  //       );
-  //     }
-  //     cancelAnimationFrame(flightAnimationFrame.current);
-  //     flightAnimationFrame.current = null;
-  //     isFlightAnimationPlaying.current = false;
-  //     setIsPlaying(false);
-  //     return;
-  //   }
-
-  //   const segmentElapsed = elapsed - currentSegmentIndex * segmentDuration;
-  //   const fraction = segmentElapsed / segmentDuration;
-  //   const startCoord = flightCoordinates[currentSegmentIndex];
-  //   const endCoord = flightCoordinates[currentSegmentIndex + 1];
-  //   const interpolatedX =
-  //     startCoord[0] + fraction * (endCoord[0] - startCoord[0]);
-  //   const interpolatedY =
-  //     startCoord[1] + fraction * (endCoord[1] - startCoord[1]);
-  //   const newCoord = [interpolatedX, interpolatedY];
-
-  //   if (animationFeatureFlight.current) {
-  //     animationFeatureFlight.current.setGeometry(new Point(newCoord));
-
-  //     const angle = calculateAngle(newCoord, endCoord);
-
-  //     animationFeatureFlight.current.setStyle(
-  //       new Style({
-  //         image: new Icon({
-  //           src: selectedIcon,
-  //           scale: 0.09,
-  //           rotateWithView: true,
-  //           rotation: angle,
-  //         }),
-  //       })
-  //     );
-  //   }
-  //   flightAnimationFrame.current = requestAnimationFrame((newTimestamp) =>
-  //     animateFlightPath(newTimestamp, flightCoordinates)
-  //   );
-  // };
-
   const playFlightAnimation = () => {
     if (flightPath.length < 2) {
       console.warn("Need at least two points for flight animation");
+      alert('Need at least two points for flight animation')
       return;
     }
     if (!vectorLayer) {
@@ -692,24 +641,6 @@ const MapComponent = () => {
     );
     console.log("Converted flight coordinates:", flightCoordinates);
 
-    // if (!animationFeatureFlight.current) {
-    //   const feature = new Feature({
-    //     geometry: new Point(flightCoordinates[0]),
-    //   });
-
-    //   feature.setStyle(
-    //     new Style({
-    //       image: new Icon({
-    //         src: selectedIcon,
-    //         scale: 0.09,
-    //         rotateWithView: false,
-    //       }),
-    //     })
-    //   );
-    //   vectorLayer.getSource().addFeature(feature);
-    //   animationFeatureFlight.current = feature;
-    // }
-
     if (!animationFeatureFlight.current) {
       const feature = new Feature({
         geometry: new Point(flightCoordinates[0]),
@@ -721,9 +652,9 @@ const MapComponent = () => {
             src: selectedIcon,
             scale: 0.09,
             rotateWithView: true,
-            rotation: 0, // Initial rotation can be 0
+            rotation: 0,
           }),
-          zIndex: 10, // Ensures the icon is rendered above the line
+          zIndex: 1000,
         })
       );
       vectorLayer.getSource().addFeature(feature);
