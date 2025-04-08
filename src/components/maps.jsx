@@ -497,12 +497,17 @@ const MapComponent = () => {
         const coordinate = event.coordinate;
         const [lon, lat] = toLonLat(coordinate);
         overlay.setPosition(coordinate);
-        container.innerHTML =
-          "<div>" +
-          '<p style="margin:0 0 8px 0;">Select emitter type:</p>' +
-          '<button id="friendly-btn" style="background-color: green; color: white; margin-right:4px; padding: 8px 12px; border: none; border-radius: 4px;">Friendly Emitter</button>' +
-          '<button id="enemy-btn" style="background-color: red; color: white; padding: 8px 12px; border: none; border-radius: 4px;">Enemy Emitter</button>' +
-          "</div>";
+        container.innerHTML = `
+        <div>
+          <p style="margin:0 0 8px 0;">Select emitter type:</p>
+          <button id="friendly-btn" style="background-color: green; color: white; margin-right:4px; padding: 8px 12px; border: none; border-radius: 4px;">
+            Friendly Emitter
+          </button>
+          <button id="enemy-btn" style="background-color: red; color: white; padding: 8px 12px; border: none; border-radius: 4px;">
+            Enemy Emitter
+          </button>
+        </div>
+      `;
         setTimeout(() => {
           document.getElementById("friendly-btn").onclick = () => {
             addEmitterMarker(coordinate, "friendly");
@@ -614,7 +619,7 @@ const MapComponent = () => {
             rotateWithView: true,
             rotation: angle,
           }),
-   
+
           zIndex: 1000,
         })
       );
@@ -628,7 +633,7 @@ const MapComponent = () => {
   const playFlightAnimation = () => {
     if (flightPath.length < 2) {
       console.warn("Need at least two points for flight animation");
-      alert('Need at least two points for flight animation')
+      alert("Need at least two points for flight animation");
       return;
     }
     if (!vectorLayer) {
