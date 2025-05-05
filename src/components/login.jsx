@@ -22,10 +22,18 @@ const Login = () => {
 
   const onSubmit = async (data) => {
     try {
-      const response = await axios.post("https://reqres.in/api/login", {
-        email: data.username,
-        password: data.password,
-      });
+      const response = await axios.post(
+        "https://reqres.in/api/login",
+        {
+          email: data.username,
+          password: data.password,
+        },
+        {
+          headers: {
+            "x-api-key": "reqres-free-v1",
+          },
+        }
+      );
 
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
